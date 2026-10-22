@@ -1,0 +1,35 @@
+%% 小智管家 · 总体业务流程图（成员 A）
+%% 用法：整段复制到 https://mermaid.live 可导出 PNG/SVG，供博客园使用
+flowchart TD
+    A([用户]) --> B{输入方式}
+    B -->|文字| C[Streamlit 聊天输入框]
+    B -->|语音| D[st.audio_input 录音]
+    D --> E[语音转文字 STT]
+    E --> C
+
+    C --> F["agent_brain.get_agent_response(user_input, history)"]
+    F --> G["组装 messages：System Prompt + 历史 + 本轮"]
+    G --> H[调用大模型 / Function Calling]
+
+    H --> I{模型决定是否调用工具?}
+
+    I -->|查天气| J1["tools_api.get_weather(city)"]
+    I -->|存待办| J2["tools_api.save_todo(task)"]
+    I -->|看待办| J3["tools_api.get_todos()"]
+    I -->|纯闲聊| K
+
+    J1 --> L1[高德 / 心知 天气 API]
+    L1 --> M1["规则引擎：下雨→室内运动，高温→补水"]
+    M1 --> K[工具结果回填给模型]
+
+    J2 --> N[(todo.txt)]
+    J3 --> N
+    N --> K
+
+    K --> O[模型生成自然语言回复]
+    O --> P[追加到 history，实现多轮记忆]
+    P --> Q[界面展示]
+    Q --> R{需要朗读?}
+    R -->|是| S[TTS 语音播报]
+    R -->|否| T([结束本轮])
+    S --> T

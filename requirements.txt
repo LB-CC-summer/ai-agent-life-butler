@@ -1,0 +1,17 @@
+# 依赖清单（成员 A 维护，锁定下限版本）
+# 安装：pip install -r requirements.txt
+
+# 前端界面 + 语音输入控件（需 1.40+ 才有 st.audio_input）
+streamlit>=1.40.0
+
+# 大模型调用（DeepSeek / 通义千问 / 智谱 等均兼容 OpenAI 协议）
+openai>=1.40.0
+
+# 天气 API 请求
+requests>=2.31.0
+
+# 读取 .env 里的密钥
+python-dotenv>=1.0.0
+
+# 本地文字转语音（加分项）
+pyttsx3>=2.90

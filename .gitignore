@@ -1,0 +1,27 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- 密钥与本地配置（绝不提交）----
+.env
+.env.local
+.streamlit/secrets.toml
+
+# ---- 运行产物 ----
+todo.txt
+*.log
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 个人规划文件，不纳入仓库 ----
+成员A-任务计划.md
