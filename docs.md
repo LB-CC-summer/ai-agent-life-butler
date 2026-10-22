@@ -285,7 +285,11 @@ streamlit run app_ui.py
 
 **仓库地址**：<https://github.com/LB-CC-summer/ai-agent-life-butler>
 
-> 🚧 仓库地址在创建后由成员 A 确认更新。
+```bash
+git clone https://github.com/LB-CC-summer/ai-agent-life-butler.git
+```
+
+仓库为 **Public**，无需登录即可查看与克隆。
 
 ---
 
