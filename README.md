@@ -65,15 +65,27 @@ streamlit run app_ui.py
 
 ## 👥 团队分工
 
-| 成员 | 角色 | 文件 |
-|---|---|---|
-| 成员 A | 项目统筹 & 文档架构 | `docs.md` / `README.md` / `.env.example` |
-| 成员 B | 大模型核心 & 记忆 | `agent_brain.py` |
-| 成员 C | 工具函数开发 | `tools_api.py` |
-| 成员 D | 前端界面 & 语音 | `app_ui.py` |
-| 成员 E | 测试 & 博客发布 | 测试用例 / 博客终稿 |
+| 成员 | 学号 | 角色 | 负责文件 |
+|---|---|---|---|
+| 廖炳程 | 3124004429 | 项目统筹 & 文档架构 | `docs.md` / `README.md` / `.env.example` / `docs/` |
+| 柯燕纯 | 3224004305 | 大模型核心 & 记忆 | `agent_brain.py` |
+| 胡俐伶 | 3224004304 | 工具函数开发 | `tools_api.py` |
+| 叶浚轩 | 3124004447 | 前端界面 & 语音 | `app_ui.py` |
+| 赖声雄 | 3124004428 | 测试 & 博客发布 | `tests/` / 博客终稿 |
 
-> 🚧 待补充成员姓名学号。
+## 🧪 测试
+
+两套都是离线可跑的，不需要 API Key、不需要联网：
+
+```bash
+# 1. E 的完整用例（85 条，覆盖工具层 / 大脑 / 界面契约）
+python tests/测试脚本.py
+
+# 2. 界面冒烟测试（用 Streamlit AppTest 把 app_ui.py 真渲染一遍）
+python tests/smoke_test.py
+```
+
+> `tests/src_snapshot/` 是测试用的源码快照，改了根目录的 py 之后需要同步过去。
 
 ## ⚠️ 注意
 

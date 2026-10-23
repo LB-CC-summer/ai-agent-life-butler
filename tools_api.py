@@ -2,9 +2,11 @@ import json
 import os
 import requests
 from datetime import datetime, timedelta
+from pathlib import Path
 import re
 
-TODO_FILE = "todo.json"
+# 【成员 A 修复 C-44】用绝对路径，避免换个工作目录启动就找不到待办文件
+TODO_FILE = str(Path(__file__).resolve().parent / "todo.json")
 
 
 # ========== 智能日期解析器（防大模型乱传） ==========
@@ -25,6 +27,10 @@ def _parse_date(date_str: str) -> str:
     if "今天" in date_str: return today.strftime("%Y-%m-%d")
     if "明天" in date_str: return (today + timedelta(days=1)).strftime("%Y-%m-%d")
     if "后天" in date_str: return (today + timedelta(days=2)).strftime("%Y-%m-%d")
+    # 【成员 A 修复 C-49】补上"昨天"等过去日期，否则 due_date 存成字符串"昨天"，
+    # list_tasks 的"已逾期"判断永远命中不了。
+    if "昨天" in date_str or "昨日" in date_str: return (today - timedelta(days=1)).strftime("%Y-%m-%d")
+    if "前天" in date_str: return (today - timedelta(days=2)).strftime("%Y-%m-%d")
 
     # 匹配星期几（如 "周五" 或 "星期五"）
     weekdays = {"一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6, "天": 6}
@@ -33,8 +39,16 @@ def _parse_date(date_str: str) -> str:
         target_weekday = weekdays[match.group(1)]
         current_weekday = today.weekday()
         days_ahead = target_weekday - current_weekday
-        if days_ahead <= 0:  # 如果今天已经过了这天，算下周
+
+        # 【成员 A 修复 C-06】"今天就是周五"时说"周五"，指的是今天，不是下周
+        # 原来 `<= 0` 会把当天也推到下周；只有真正"已经过去"才加 7 天。
+        if "下" in date_str:
+            # "下周三"：始终指下一周的周三。先取本周内的偏移，
+            # 若本周还没到就 +7 直接跳到下周；若本周已过（days_ahead < 0）再 +7 才对。
             days_ahead += 7
+        elif days_ahead < 0:
+            days_ahead += 7
+
         return (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
     # 实在解析不了，就把原字符串扔回去，让大模型自己看着办
@@ -48,7 +62,8 @@ def get_weather(city_name: str = "北京", query_date: str = "") -> dict:
     if not city_name: city_name = "北京"
 
     today = datetime.now().date()
-    target_date_str = _parse_date(query_date)
+    # 【成员 A 修复 C-18 / C-19】不传日期（或传空串）时，默认查今天，而不是报"无法解析日期"
+    target_date_str = _parse_date(query_date) or today.strftime("%Y-%m-%d")
 
     try:
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()
@@ -80,9 +95,13 @@ def get_weather(city_name: str = "北京", query_date: str = "") -> dict:
     # 聚合早中晚天气，让大模型建议更准
     def get_desc(hour_idx):
         desc = day_data["hourly"][hour_idx]["weatherDesc"][0]["value"]
-        if "Rain" in desc or "Shower" in desc: return "雨"
-        if "Snow" in desc: return "雪"
-        if "Cloud" in desc or "Overcast" in desc: return "多云"
+        # 【成员 A 修复 C-15 / C-16 / C-17】wttr.in 真实报文是小写
+        # （"Light rain" / "Light drizzle" / "Partly cloudy"），
+        # 原来只匹配大写首字母，导致所有天气都被判成"晴"。统一转小写再判。
+        d = desc.lower()
+        if "rain" in d or "shower" in d or "drizzle" in d or "thunder" in d: return "雨"
+        if "snow" in d or "sleet" in d or "blizzard" in d: return "雪"
+        if "cloud" in d or "overcast" in d or "mist" in d or "fog" in d: return "多云"
         return "晴"
 
     morning = get_desc(2)  # 6点
@@ -115,12 +134,24 @@ def _load_tasks() -> list:
         with open(TODO_FILE, "r", encoding="utf-8") as f:
             return [t for t in json.load(f) if "task" in t]
     except Exception:
+        # 【成员 A 修复 C-48】todo.json 损坏时，先把它备份成 .broken，
+        # 再用空列表继续工作 —— 既不让程序崩，也不静默丢掉用户数据的可恢复副本。
+        try:
+            broken = f"{TODO_FILE}.broken"
+            if os.path.exists(broken):
+                broken = f"{TODO_FILE}.broken.{int(datetime.now().timestamp())}"
+            os.replace(TODO_FILE, broken)
+        except Exception:
+            pass
         return []
 
 
 def _save_tasks(tasks: list) -> None:
-    with open(TODO_FILE, "w", encoding="utf-8") as f:
+    # 【成员 A 修复 C-48】先写临时文件再原子替换，避免写一半断电把文件写坏
+    tmp = f"{TODO_FILE}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(tasks, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, TODO_FILE)
 
 
 def _next_id(tasks: list) -> int:
@@ -128,11 +159,15 @@ def _next_id(tasks: list) -> int:
 
 
 def add_task(task_content: str, due_date: str = "") -> dict:
+    # 【成员 A 修复 C-45 / K-06】空内容或 None 一律拒绝，而不是存一条空待办
+    if not task_content or not str(task_content).strip():
+        return {"success": False, "message": "要记什么呢？说给我听～"}
+
     tasks = _load_tasks()
     parsed_date = _parse_date(due_date)  # 智能解析
     new_task = {
         "id": _next_id(tasks),
-        "task": task_content.strip(),
+        "task": str(task_content).strip(),
         "due_date": parsed_date,
         "done": False
     }
@@ -164,8 +199,13 @@ def list_tasks(include_done: bool = False) -> dict:
 
 
 def search_task(keyword: str) -> dict:
+    # 【成员 A 修复 C-40】空关键词匹配所有任务，等于把全部待办都当成"搜索结果"返回，
+    # 会让大模型误以为用户搜到了东西。空关键词一律按"没找到"处理。
+    if not keyword or not str(keyword).strip():
+        return {"success": False, "message": "要搜哪个任务呢？给个关键词吧～"}
+
     tasks = _load_tasks()
-    matched = [t for t in tasks if keyword in t["task"]]
+    matched = [t for t in tasks if str(keyword).strip() in t["task"]]
     if not matched:
         return {"success": False, "message": f"没有找到包含 '{keyword}' 的任务。"}
     return {"success": True, "tasks": matched}

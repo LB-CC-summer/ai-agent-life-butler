@@ -15,7 +15,7 @@ load_dotenv()  # 从 .env 文件中加载环境变量（保护 API Key 不泄露
 
 # --- 成员 A 整合改动（Day 4）：配置改为可被 .env 覆盖；缺 Key 时不在 import 阶段崩溃 ---
 # 原因：界面层必须 import 本模块。若 Key 未配置就 raise，整个网页直接白屏；
-#      改为占位 key，把错误推迟到真正发请求那一刻，由界面层给出友好提示。
+#      改为传入一个占位字符串，把错误推迟到真正发请求那一刻，由界面层给出友好提示。
 MODEL = os.getenv("LLM_MODEL", "deepseek-flash")
 BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
 API_KEY = os.getenv("DEEPSEEK_API_KEY") or os.getenv("LLM_API_KEY") or ""
@@ -24,6 +24,9 @@ client = OpenAI(api_key=API_KEY or "missing-key", base_url=BASE_URL)
 
 # 记忆滑动窗口大小：最多保留 20 条对话记录（约 10 轮），防止 Token 消耗过大或超限
 MAX_HISTORY_MESSAGES = 20
+
+# 【成员 A 修复 B-18】单轮对话里最多允许几次"模型→工具→模型"的往返
+MAX_TOOL_ROUNDS = 5
 
 # ================= 2. 核心提示词 (System Prompt) =================
 # 这里定义了 Agent 的“人设”和“工具使用规范”，是让大模型变聪明的关键。
@@ -97,7 +100,9 @@ def get_agent_response(user_input: str, history: list = None):
     messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
     # 3. 开启循环，处理大模型可能的多次工具调用（比如先搜ID，再标完成）
-    while True:
+    # 【成员 A 修复 B-18】加最大轮数上限：模型若反复调工具（或陷入自我循环），
+    # 不能无限请求下去 —— 既烧钱又会让界面永远转圈。超过上限就强制收尾。
+    for _round in range(MAX_TOOL_ROUNDS):
         # 发送请求给大模型，并附带工具描述
         response = client.chat.completions.create(
             model=MODEL, messages=messages, tools=build_tools(), tool_choice="auto"
@@ -134,6 +139,11 @@ def get_agent_response(user_input: str, history: list = None):
         # 裁剪历史记录防止过长
         history = trim_history(history)
         return final_text, history
+
+    # 超过最大轮数仍未给出文本回复：兜底收尾，保证界面一定能拿到回复
+    fallback = "我一连查了好几次都还没得出结论，要不换个说法再问我一次？"
+    history.append({"role": "assistant", "content": fallback})
+    return fallback, trim_history(history)
 
 # ================= 7. 本地终端测试入口 =================
 if __name__ == "__main__":
