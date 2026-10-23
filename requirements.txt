@@ -1,17 +1,20 @@
-# 依赖清单（成员 A 维护，锁定下限版本）
+# 依赖清单（成员 A 维护）
 # 安装：pip install -r requirements.txt
 
-# 前端界面 + 语音输入控件（需 1.40+ 才有 st.audio_input）
+# 前端界面 + 语音输入控件（st.audio_input 需要 Streamlit 1.40+）
 streamlit>=1.40.0
 
-# 大模型调用（DeepSeek / 通义千问 / 智谱 等均兼容 OpenAI 协议）
+# 大模型调用（DeepSeek 兼容 OpenAI 协议，成员 B 的 agent_brain.py 使用）
 openai>=1.40.0
 
-# 天气 API 请求
+# 天气接口请求（wttr.in 公共接口，无需 Key）
 requests>=2.31.0
 
 # 读取 .env 里的密钥
 python-dotenv>=1.0.0
 
-# 本地文字转语音（加分项）
-pyttsx3>=2.90
+# 语音输入：麦克风录音识别（语音播报改用浏览器合成，无需额外依赖）
+SpeechRecognition>=3.10.0
+
+# 排错用：若调用模型时报 "TypeError: process() takes no keyword arguments"，
+# 说明本机 Brotli 太旧（1.0.x），执行 pip install -U brotli 即可，不必写进依赖。

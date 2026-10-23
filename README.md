@@ -12,11 +12,12 @@
 
 | 你对它说 | 它做什么 |
 |---|---|
-| "上海今天天气怎么样，要带伞吗？" | 调天气 API，返回温度/天气现象 + 穿衣带伞建议 |
-| "记一下，周五下午三点交实验报告" | 写入本地 `todo.txt`，回复确认并告知条数 |
-| "我还有哪些待办？" | 读取文件并列表化输出 |
-| "那明天呢？" | 结合上一轮上下文追问回答（多轮记忆） |
-| 按住麦克风说一句 | 语音转文字 → 同上；回复可朗读（语音播报） |
+| "上海今天天气怎么样，要带伞吗？" | 调 wttr.in 天气接口，返回温度/天气现象 + 模型生成的出行建议 |
+| "记一下，周五下午三点交实验报告" | 写入本地 `todo.json`（自动把"周五"解析成日期） |
+| "我还有哪些待办？" | 按逾期 / 今天截止 / 未到期列表化输出 |
+| "把交作业那条标完成" | 先 `search_task` 查 ID，再 `done_task` 标记完成 |
+| "那明天呢？" | 结合上一轮上下文追问回答（滑动窗口记忆 20 条） |
+| 按住麦克风说一句 | 语音转文字 → 同上；回复可用浏览器语音合成朗读 |
 
 ## 🧠 为什么这是 Agent 而不是普通聊天机器人
 
@@ -29,7 +30,7 @@
 ai-agent-life-butler/
 ├── app_ui.py              # 表现层 —— Streamlit 界面 + 语音（成员 D）
 ├── agent_brain.py         # 决策层 —— 大模型核心 + 多轮记忆（成员 B）
-├── tools_api.py           # 工具层 —— 天气 API / 待办读写 / 规则（成员 C）
+├── tools_api.py           # 工具层 —— 天气 / 待办 CRUD（成员 C）
 ├── requirements.txt       # 依赖清单（成员 A）
 ├── .env.example           # 环境变量模板，复制为 .env 后填值（成员 A）
 ├── .gitignore             # 密钥与产物排除（成员 A）
@@ -49,7 +50,7 @@ cd ai-agent-life-butler
 
 pip install -r requirements.txt
 cp .env.example .env        # Windows: copy .env.example .env
-# 编辑 .env，填入自己的 LLM_API_KEY 与 WEATHER_API_KEY
+# 编辑 .env，只填 DEEPSEEK_API_KEY 一项即可（天气接口免 Key）
 
 streamlit run app_ui.py
 ```
